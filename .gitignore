@@ -1,0 +1,13 @@
+target/
+*.iml
+*.iws
+*.ipr
+.mvn/
+mvnw
+mvnw.cmd
+.idea/
+.vscode/
+.DS_Store
+*.log
+.env
+*.secret
