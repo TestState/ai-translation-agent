@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.hsgamer</groupId>
-    <artifactId>ai-translation-agent</artifactId>
+    <artifactId>teststate-ai-translation-agent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
     <properties>
