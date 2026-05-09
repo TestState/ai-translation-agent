@@ -1,4 +1,4 @@
-package me.hsgamer.testgenesis.agent.translation;
+package me.hsgamer.teststate.agent.translation;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.gson.Gson;
@@ -12,9 +12,9 @@ import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.AiServices;
-import me.hsgamer.testgenesis.client.context.TranslationSessionContext;
-import me.hsgamer.testgenesis.client.processor.TranslationSessionProcessor;
-import me.hsgamer.testgenesis.uap.v1.*;
+import me.hsgamer.teststate.client.context.TranslationSessionContext;
+import me.hsgamer.teststate.client.processor.TranslationSessionProcessor;
+import me.hsgamer.teststate.uap.v1.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

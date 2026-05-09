@@ -1,4 +1,4 @@
-package me.hsgamer.testgenesis.agent.translation;
+package me.hsgamer.teststate.agent.translation;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

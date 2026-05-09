@@ -1,6 +1,6 @@
-package me.hsgamer.testgenesis.agent.translation;
+package me.hsgamer.teststate.agent.translation;
 
-import me.hsgamer.testgenesis.client.Agent;
+import me.hsgamer.teststate.client.Agent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
