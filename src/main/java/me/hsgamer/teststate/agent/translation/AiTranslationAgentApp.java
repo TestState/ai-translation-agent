@@ -25,8 +25,9 @@ public class AiTranslationAgentApp {
             logger.info("Starting AI Translation Agent connecting to {}", hubUrl);
             Agent agent = new Agent(hubUrl, displayName);
 
-            // Register processor
+            // Register processors
             agent.registerTranslationProcessor(new AiTranslationProcessor(aiApiKey, aiBaseUrl, aiModelName));
+            agent.registerTranslationProcessor(new AiPuppeteerTranslationProcessor(aiApiKey, aiBaseUrl, aiModelName));
 
             agent.start();
         } catch (Exception e) {
