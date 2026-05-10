@@ -53,6 +53,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
             finalCmd.put("comment", cmd.comment());
             finalCmd.put("command", cmd.command());
             finalCmd.put("target", cmd.target());
+            finalCmd.put("targets", cmd.targets());
             finalCmd.put("value", cmd.value());
             finalCommands.add(finalCmd);
         }
@@ -104,7 +105,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
                - **PLAN MAINTENANCE**: You MUST call `updatePlan` at least once every 3 interaction turns to document progress and adjust for any dynamic changes in the application.
             4. **MANDATORY VERIFICATION (Extract)**: 
                - **STRICT RULE**: You MUST call `getInteractionLog` at the very end.
-               - **FINAL ASSEMBLY**: Map the JSON objects from the log DIRECTLY into the final response format. If a step is not in the log, it does not exist.
+               - **FINAL ASSEMBLY**: Map the JSON objects from the log into the final response format. If a step is not in the log, it does not exist. **NOTE**: You ONLY need to provide `command`, `target`, `targets`, and `value` (plus `comment`). The technical field `id` is handled automatically by the system.
             
             # REFERENCE EXAMPLE
             **User Script**: "1. Go to site.com, 2. Login as 'admin', 3. Click 'Dashboard'."
@@ -124,7 +125,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
               "testName": "string",
               "description": "string",
               "commands": [
-                { "command": "string", "target": "string", "value": "string", "comment": "string" }
+                { "command": "string", "target": "string", "targets": [["string", "string"]], "value": "string", "comment": "string" }
               ]
             }
             """)
@@ -143,6 +144,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
         @JsonProperty(required = true) String comment,
         @JsonProperty(required = true) String command,
         @JsonProperty(required = true) String target,
+        @JsonProperty(required = true) List<List<String>> targets,
         @JsonProperty(required = true) String value
     ) {
     }

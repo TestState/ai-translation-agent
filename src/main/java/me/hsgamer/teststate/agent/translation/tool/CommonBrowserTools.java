@@ -20,6 +20,7 @@ public class CommonBrowserTools extends AbstractBrowserTools {
             // Get ARIA data
             const aria = getAriaSelectors(el);
             locators.aria = aria;
+            locators.ariaSelector = "aria/" + aria.name;
 
             // Simple XPath
             const getXPath = (element) => {

@@ -21,7 +21,21 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
 
     private List<List<String>> formatSelectors(List<String> selectors) {
         return selectors.stream()
-                .map(Collections::singletonList)
+                .map(s -> {
+                    String formatted = s;
+                    if (s.startsWith("id=")) {
+                        formatted = "#" + s.substring(3);
+                    } else if (s.startsWith("name=")) {
+                        formatted = "[name=\"" + s.substring(5) + "\"]";
+                    } else if (s.startsWith("xpath=")) {
+                        formatted = "xpath/" + s.substring(6);
+                    } else if (s.startsWith("css=")) {
+                        formatted = s.substring(4);
+                    } else if (s.startsWith("aria=")) {
+                        formatted = "aria/" + s.substring(5);
+                    }
+                    return Collections.singletonList(formatted);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -41,9 +55,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
         page.click(primary);
         Map<String, Object> params = new HashMap<>();
         params.put("selectors", formatSelectors(selectors));
-        params.put("target", "main");
-        params.put("offsetX", 1);
-        params.put("offsetY", 1);
         return Collections.singletonList(createStep("click", params));
     }
 
@@ -58,7 +69,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
         Map<String, Object> params = new HashMap<>();
         params.put("selectors", formatSelectors(selectors));
         params.put("value", text);
-        params.put("target", "main");
         return Collections.singletonList(createStep("change", params));
     }
 
@@ -71,7 +81,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
         
         Map<String, Object> params = new HashMap<>();
         params.put("key", "Enter");
-        params.put("target", "main");
         
         List<Object> steps = new ArrayList<>();
         steps.add(createStep("keyDown", params));
@@ -100,7 +109,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
             page.waitForTimeout(300);
             Map<String, Object> pauseParams = new HashMap<>();
             pauseParams.put("expression", "new Promise(resolve => setTimeout(() => resolve(true), 300))");
-            pauseParams.put("target", "main");
             Object pauseStep = createStep("waitForExpression", pauseParams);
 
             page.locator(primary).waitFor(new com.microsoft.playwright.Locator.WaitForOptions()
@@ -108,7 +116,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
                 .setTimeout(timeout));
             Map<String, Object> params = new HashMap<>();
             params.put("selectors", formatSelectors(selectors));
-            params.put("target", "main");
             Object waitStep = createStep("waitForElement", params);
             
             return Arrays.asList(pauseStep, waitStep);
@@ -127,11 +134,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("width", width);
         params.put("height", height);
-        params.put("deviceScaleFactor", 1);
-        params.put("isMobile", false);
-        params.put("hasTouch", false);
-        params.put("isLandscape", false);
-        params.put("target", "main");
         return Collections.singletonList(createStep("setViewport", params));
     }
 
@@ -143,7 +145,6 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
             page.locator(primary).scrollIntoViewIfNeeded();
             Map<String, Object> params = new HashMap<>();
             params.put("selectors", formatSelectors(selectors));
-            params.put("target", "main");
             return Collections.singletonList(createStep("scroll", params));
         } catch (com.microsoft.playwright.PlaywrightException e) {
             return "Error: Could not scroll to element: " + selectors;

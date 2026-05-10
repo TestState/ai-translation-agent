@@ -46,9 +46,36 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
 
     @Override
     protected TranslationResult createTranslationResult(RecorderUserFlow userFlow) {
+        List<Map<String, Object>> finalSteps = new ArrayList<>();
+        for (Map<String, Object> step : userFlow.steps()) {
+            Map<String, Object> finalStep = new LinkedHashMap<>(step);
+            String type = (String) finalStep.get("type");
+
+            // Add back target: "main" to all steps that don't have a target
+            if (!finalStep.containsKey("target")) {
+                finalStep.put("target", "main");
+            }
+
+            // Special handling for click
+            if ("click".equals(type)) {
+                finalStep.putIfAbsent("offsetX", 1);
+                finalStep.putIfAbsent("offsetY", 1);
+            }
+
+            // Special handling for setViewport
+            if ("setViewport".equals(type)) {
+                finalStep.putIfAbsent("deviceScaleFactor", 1);
+                finalStep.putIfAbsent("isMobile", false);
+                finalStep.putIfAbsent("hasTouch", false);
+                finalStep.putIfAbsent("isLandscape", false);
+            }
+
+            finalSteps.add(finalStep);
+        }
+
         Map<String, Object> finalResult = new LinkedHashMap<>();
         finalResult.put("title", userFlow.title());
-        finalResult.put("steps", userFlow.steps());
+        finalResult.put("steps", finalSteps);
 
         String jsonResult = GSON.toJson(finalResult);
 
@@ -78,7 +105,7 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             2. **LOG IS THE ONLY TRUTH**: Your final JSON output MUST be a direct reflection of the `getInteractionLog` results. You are FORBIDDEN from adding, modifying, or hallucinating any command that was not explicitly recorded in the log via a tool call. **NOTE**: The JSON objects returned by each tool are the EXACT objects that must appear in your final `steps` array. Do NOT change them.
             3. **BATCH FOR SPEED**: You are ENCOURAGED to call multiple tools in a single turn.
             4. **SYNC > PAUSE**: `waitForElementVisible` is the primary synchronization tool. It AUTOMATICALLY handles page transition delays by recording a short pause before the wait. Fixed manual `pause` is a LAST-RESORT.
-            5. **SELECTOR HIERARCHY**: ARIA (Role/Name) -> ID -> Name -> CSS -> XPath. Recorder format uses a nested array for selectors. **TIP**: You are ENCOURAGED to provide multiple selector variants (e.g. [ARIA, ID, CSS]) in tool calls to improve script reliability.
+            5. **SELECTOR HIERARCHY**: ARIA (Role/Name) -> ID -> Name -> CSS -> XPath. Recorder format uses a nested array for selectors. **TIP**: You are ENCOURAGED to provide multiple selector variants (e.g. [ARIA, ID, CSS]) in tool calls. Use prefixes like `id=`, `name=`, `xpath=`, or `css=` which will be automatically converted to Recorder syntax (e.g. `#id`, `[name="name"]`, `xpath/path`). For ARIA, use the `aria/Name` format.
             6. **VIEWPORT SAFETY**: Always `setWindowSize` (1280x1024) at start and `scrollToElement` before interaction.
             
             # EXECUTION PROTOCOL (Plan-and-Execute)
@@ -91,7 +118,7 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
                - **PLAN MAINTENANCE**: You MUST call `updatePlan` at least once every 3 interaction turns to document progress and adjust for any dynamic changes in the application.
             4. **MANDATORY VERIFICATION (Extract)**: 
                - **STRICT RULE**: You MUST call `getInteractionLog` at the very end.
-               - **FINAL ASSEMBLY**: Map the JSON objects from the log DIRECTLY into the final response format. If a step is not in the log, it does not exist.
+               - **FINAL ASSEMBLY**: Map the JSON objects from the log into the final response format. If a step is not in the log, it does not exist. **NOTE**: You ONLY need to provide the essential fields (e.g. `type`, `selectors`, `url`, `value`). Technical details like `target: "main"`, `offsetX`, `offsetY`, and viewport flags are handled automatically by the system.
             
             # MANUAL SCRIPT
             {{script}}
@@ -102,8 +129,8 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
               "title": "string",
               "steps": [
                 { "type": "navigate", "url": "string" },
-                { "type": "click", "selectors": [["string"]], "target": "main", "offsetX": 1, "offsetY": 1 },
-                { "type": "change", "selectors": [["string"]], "value": "string", "target": "main" }
+                { "type": "click", "selectors": [["string"]] },
+                { "type": "change", "selectors": [["string"]], "value": "string" }
               ]
             }
             """)

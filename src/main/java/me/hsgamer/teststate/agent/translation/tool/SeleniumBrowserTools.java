@@ -15,7 +15,7 @@ public class SeleniumBrowserTools extends AbstractBrowserTools {
         Map<String, Object> cmd = new LinkedHashMap<>();
         cmd.put("command", command);
         cmd.put("target", targets.get(0));
-        
+
         List<List<String>> targetVariants = new ArrayList<>();
         for (String t : targets) {
             String strategy = "css";
@@ -23,10 +23,11 @@ public class SeleniumBrowserTools extends AbstractBrowserTools {
             else if (t.startsWith("name=")) strategy = "name";
             else if (t.startsWith("xpath=")) strategy = "xpath";
             else if (t.startsWith("linkText=")) strategy = "linkText";
-            
+
             targetVariants.add(Arrays.asList(t, strategy));
         }
         cmd.put("targets", targetVariants);
+
         cmd.put("value", value);
         return logAndReturn(cmd);
     }
