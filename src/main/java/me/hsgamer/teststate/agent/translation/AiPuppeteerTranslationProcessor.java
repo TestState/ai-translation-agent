@@ -41,7 +41,10 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
 
     @Override
     protected RecorderUserFlow translate(TranslatorService service, String script) {
-        return service.translate(script);
+        String rawJson = service.translate(script);
+        String cleanedJson = cleanJsonString(rawJson);
+        logger.info("Cleaned JSON from AI: {}", cleanedJson);
+        return GSON.fromJson(cleanedJson, RecorderUserFlow.class);
     }
 
     @Override
@@ -124,7 +127,7 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             {{script}}
             
             # RESPONSE SPECIFICATION
-            Return ONLY the JSON object. No markdown blocks.
+            Return ONLY the raw JSON object. Do not wrap the JSON in markdown code blocks or quotes.
             {
               "title": "string",
               "steps": [
@@ -135,7 +138,7 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             }
             """)
         @dev.langchain4j.service.UserMessage("Start translation")
-        RecorderUserFlow translate(@dev.langchain4j.service.V("script") String script);
+        String translate(@dev.langchain4j.service.V("script") String script);
     }
 
     public record RecorderUserFlow(

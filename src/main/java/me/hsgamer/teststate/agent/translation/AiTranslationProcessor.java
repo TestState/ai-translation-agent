@@ -41,7 +41,10 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
 
     @Override
     protected SideTest translate(TranslatorService service, String script) {
-        return service.translate(script);
+        String rawJson = service.translate(script);
+        String cleanedJson = cleanJsonString(rawJson);
+        logger.info("Cleaned JSON from AI: {}", cleanedJson);
+        return GSON.fromJson(cleanedJson, SideTest.class);
     }
 
     @Override
@@ -120,7 +123,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
             {{script}}
             
             # RESPONSE SPECIFICATION
-            Return ONLY the JSON object. No markdown blocks.
+            Return ONLY the raw JSON object. Do not wrap the JSON in markdown code blocks or quotes.
             {
               "testName": "string",
               "description": "string",
@@ -130,7 +133,7 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
             }
             """)
         @dev.langchain4j.service.UserMessage("Start translation")
-        SideTest translate(@dev.langchain4j.service.V("script") String script);
+        String translate(@dev.langchain4j.service.V("script") String script);
     }
 
     public record SideTest(

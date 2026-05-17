@@ -30,6 +30,46 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     protected static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    public static String cleanJsonString(String input) {
+        if (input == null) {
+            return null;
+        }
+        String trimmed = input.trim();
+
+        // If it's wrapped in a markdown code block, extract the JSON block
+        if (trimmed.startsWith("```")) {
+            int start = trimmed.indexOf('{');
+            if (start == -1) start = trimmed.indexOf('[');
+            int end = trimmed.lastIndexOf('}');
+            if (end == -1) end = trimmed.lastIndexOf(']');
+            if (start != -1 && end != -1 && end > start) {
+                trimmed = trimmed.substring(start, end + 1).trim();
+            }
+        }
+
+        // If it's wrapped in quotes, it might be a JSON string literal
+        if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            try {
+                // Parse it as a JSON string primitive to automatically handle all escaping rules
+                trimmed = GSON.fromJson(trimmed, String.class).trim();
+            } catch (Exception e) {
+                // Fallback to manual stripping if parsing fails
+                trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            }
+        }
+
+        // In case there is still any leading/trailing garbage, find the first brace
+        int start = trimmed.indexOf('{');
+        if (start == -1) start = trimmed.indexOf('[');
+        int end = trimmed.lastIndexOf('}');
+        if (end == -1) end = trimmed.lastIndexOf(']');
+        if (start != -1 && end != -1 && end > start) {
+            trimmed = trimmed.substring(start, end + 1).trim();
+        }
+
+        return trimmed;
+    }
+
     private final String apiKey;
     private final String baseUrl;
     private final String modelName;
