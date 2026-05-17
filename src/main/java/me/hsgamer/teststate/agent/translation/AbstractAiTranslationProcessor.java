@@ -30,24 +30,38 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     protected static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    private static String extractJsonBoundaries(String text) {
+        int startObj = text.indexOf('{');
+        int startArr = text.indexOf('[');
+        int start = -1;
+        int end = -1;
+
+        if (startObj != -1 && (startArr == -1 || startObj < startArr)) {
+            start = startObj;
+            end = text.lastIndexOf('}');
+        } else if (startArr != -1) {
+            start = startArr;
+            end = text.lastIndexOf(']');
+        }
+
+        if (start != -1 && end != -1 && end > start) {
+            return text.substring(start, end + 1).trim();
+        }
+        return text;
+    }
+
     public static String cleanJsonString(String input) {
         if (input == null) {
             return null;
         }
         String trimmed = input.trim();
 
-        // If it's wrapped in a markdown code block, extract the JSON block
+        // 1. Remove markdown formatting if present
         if (trimmed.startsWith("```")) {
-            int start = trimmed.indexOf('{');
-            if (start == -1) start = trimmed.indexOf('[');
-            int end = trimmed.lastIndexOf('}');
-            if (end == -1) end = trimmed.lastIndexOf(']');
-            if (start != -1 && end != -1 && end > start) {
-                trimmed = trimmed.substring(start, end + 1).trim();
-            }
+            trimmed = extractJsonBoundaries(trimmed);
         }
 
-        // If it's wrapped in quotes, it might be a JSON string literal
+        // 2. Unwrap quote/string literal encapsulation if present
         if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
             try {
                 // Parse it as a JSON string primitive to automatically handle all escaping rules
@@ -58,16 +72,8 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
             }
         }
 
-        // In case there is still any leading/trailing garbage, find the first brace
-        int start = trimmed.indexOf('{');
-        if (start == -1) start = trimmed.indexOf('[');
-        int end = trimmed.lastIndexOf('}');
-        if (end == -1) end = trimmed.lastIndexOf(']');
-        if (start != -1 && end != -1 && end > start) {
-            trimmed = trimmed.substring(start, end + 1).trim();
-        }
-
-        return trimmed;
+        // 3. Extract final balanced JSON payload
+        return extractJsonBoundaries(trimmed);
     }
 
     private final String apiKey;
