@@ -91,6 +91,7 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
                     .modelName(modelName)
                     .strictJsonSchema(true)
                     .returnThinking(true)
+                    .sendThinking(true)
                     .logRequests(true)
                     .logResponses(true)
                     .listeners(Collections.singletonList(new ChatModelListener() {
