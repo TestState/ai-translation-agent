@@ -72,11 +72,11 @@ public class AiTranslationProcessor extends AbstractAiTranslationProcessor<AiTra
         for (SideCommand cmd : resultTest.commands()) {
             Map<String, Object> finalCmd = new LinkedHashMap<>();
             finalCmd.put("id", UUID.randomUUID().toString());
-            finalCmd.put("comment", cmd.comment());
+            finalCmd.put("comment", cmd.comment() != null ? cmd.comment() : "");
             finalCmd.put("command", cmd.command());
             finalCmd.put("target", cmd.target());
             finalCmd.put("targets", cmd.targets());
-            finalCmd.put("value", cmd.value());
+            finalCmd.put("value", cmd.value() != null ? cmd.value() : "");
             finalCommands.add(finalCmd);
         }
 

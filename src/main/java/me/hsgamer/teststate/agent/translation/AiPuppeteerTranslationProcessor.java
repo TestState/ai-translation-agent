@@ -87,6 +87,12 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             if (step.height() != null) {
                 finalStep.put("height", step.height());
             }
+            if (step.expression() != null) {
+                finalStep.put("expression", step.expression());
+            }
+            if (step.key() != null) {
+                finalStep.put("key", step.key());
+            }
 
             String type = step.type();
 
@@ -203,8 +209,10 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
         String url,
         List<List<String>> selectors,
         String value,
+        String expression,
         Integer width,
-        Integer height
+        Integer height,
+        String key
     ) {
     }
 
@@ -236,7 +244,11 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
                     if (!url.startsWith("http://") && !url.startsWith("https://")) {
                         throw new IllegalArgumentException("Step " + (i + 1) + ": url must start with http:// or https:// (got: " + url + ")");
                     }
-                } else if ("click".equalsIgnoreCase(type) || "change".equalsIgnoreCase(type)) {
+                } else if ("waitForExpression".equalsIgnoreCase(type)) {
+                    if (step.expression() == null) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": expression is required for waitForExpression step");
+                    }
+                } else if ("click".equalsIgnoreCase(type) || "change".equalsIgnoreCase(type) || "waitForElement".equalsIgnoreCase(type) || "scroll".equalsIgnoreCase(type)) {
                     if (step.selectors() == null || step.selectors().isEmpty()) {
                         throw new IllegalArgumentException("Step " + (i + 1) + ": selectors are required for " + type + " step");
                     }
@@ -258,6 +270,20 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
                                     "or 'xpath/...' instead of 'xpath=...'.");
                             }
                         }
+                    }
+                    if ("change".equalsIgnoreCase(type) && step.value() == null) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": value is required for change step");
+                    }
+                } else if ("setViewport".equalsIgnoreCase(type)) {
+                    if (step.width() == null) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": width is required for setViewport step");
+                    }
+                    if (step.height() == null) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": height is required for setViewport step");
+                    }
+                } else if ("keyDown".equalsIgnoreCase(type) || "keyUp".equalsIgnoreCase(type)) {
+                    if (step.key() == null || step.key().trim().isEmpty()) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": key is required for " + type + " step");
                     }
                 }
             }
