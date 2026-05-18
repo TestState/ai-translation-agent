@@ -39,6 +39,30 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
                 .collect(Collectors.toList());
     }
 
+    private String toPlaywrightSelector(String s) {
+        if (s == null) return "";
+        String trimmed = s.trim();
+        if (trimmed.startsWith("xpath/")) {
+            return "xpath=" + trimmed.substring(6);
+        }
+        if (trimmed.startsWith("aria/")) {
+            return "text=" + trimmed.substring(5);
+        }
+        if (trimmed.startsWith("id=")) {
+            return "#" + trimmed.substring(3);
+        }
+        if (trimmed.startsWith("name=")) {
+            return "[name=\"" + trimmed.substring(5) + "\"]";
+        }
+        if (trimmed.startsWith("css=")) {
+            return trimmed.substring(4);
+        }
+        if (trimmed.startsWith("xpath=")) {
+            return trimmed.substring(6);
+        }
+        return trimmed;
+    }
+
     @Tool("Navigate the browser to a specific URL (Chrome DevTools Recorder: navigate). Returns the exact JSON step recorded.")
     public List<Object> open(@P("The full destination URL") String url) {
         logger.info("Tool [OPEN]: {}", url);
@@ -52,7 +76,7 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
     public List<Object> click(@P("The selectors for the element (provide multiple variants for reliability)") List<String> selectors) {
         logger.info("Tool [CLICK]: {}", selectors);
         String primary = selectors.get(0);
-        page.click(primary);
+        page.click(toPlaywrightSelector(primary));
         Map<String, Object> params = new HashMap<>();
         params.put("selectors", formatSelectors(selectors));
         return Collections.singletonList(createStep("click", params));
@@ -65,7 +89,7 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
     ) {
         logger.info("Tool [TYPE]: {} with text {}", selectors, text);
         String primary = selectors.get(0);
-        page.fill(primary, text);
+        page.fill(toPlaywrightSelector(primary), text);
         Map<String, Object> params = new HashMap<>();
         params.put("selectors", formatSelectors(selectors));
         params.put("value", text);
@@ -76,7 +100,7 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
     public List<Object> sendKeys(@P("The selectors for the element to focus (provide multiple variants for reliability)") List<String> selectors) {
         logger.info("Tool [SENDKEYS]: {}", selectors);
         String primary = selectors.get(0);
-        page.focus(primary);
+        page.focus(toPlaywrightSelector(primary));
         page.keyboard().press("Enter");
         
         Map<String, Object> params = new HashMap<>();
@@ -111,7 +135,7 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
             pauseParams.put("expression", "new Promise(resolve => setTimeout(() => resolve(true), 300))");
             Object pauseStep = createStep("waitForExpression", pauseParams);
 
-            page.locator(primary).waitFor(new com.microsoft.playwright.Locator.WaitForOptions()
+            page.locator(toPlaywrightSelector(primary)).waitFor(new com.microsoft.playwright.Locator.WaitForOptions()
                 .setState(com.microsoft.playwright.options.WaitForSelectorState.VISIBLE)
                 .setTimeout(timeout));
             Map<String, Object> params = new HashMap<>();
@@ -142,7 +166,7 @@ public class PuppeteerBrowserTools extends AbstractBrowserTools {
         logger.info("Tool [SCROLLTOELEMENT]: {}", selectors);
         String primary = selectors.get(0);
         try {
-            page.locator(primary).scrollIntoViewIfNeeded();
+            page.locator(toPlaywrightSelector(primary)).scrollIntoViewIfNeeded();
             Map<String, Object> params = new HashMap<>();
             params.put("selectors", formatSelectors(selectors));
             return Collections.singletonList(createStep("scroll", params));

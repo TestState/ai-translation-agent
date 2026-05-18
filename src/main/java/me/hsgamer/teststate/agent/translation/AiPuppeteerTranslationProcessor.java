@@ -3,6 +3,7 @@ package me.hsgamer.teststate.agent.translation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import me.hsgamer.teststate.agent.translation.tool.BrowserInteractionLog;
 import me.hsgamer.teststate.agent.translation.tool.PuppeteerBrowserTools;
+import me.hsgamer.teststate.agent.translation.tool.TranslationOutputSubmitter;
 import me.hsgamer.teststate.uap.v1.*;
 
 import java.util.*;
@@ -40,37 +41,70 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
     }
 
     @Override
-    protected RecorderUserFlow translate(TranslatorService service, String script) {
+    protected Class<RecorderUserFlow> getResultClass() {
+        return RecorderUserFlow.class;
+    }
+
+    @Override
+    protected RecorderUserFlow translate(TranslatorService service, String script, TranslationOutputSubmitter<RecorderUserFlow> submitter) {
         String rawJson = service.translate(script);
+        
+        // 1. Primary path: Use the validated JSON submitted via the tool
+        if (submitter.getSubmittedOutput() != null) {
+            logger.info("Using validated translation output submitted via the submitTranslation tool.");
+            return submitter.getSubmittedOutput();
+        }
+        
+        // 2. Fallback path: Clean and parse the text returned by the chat completion
+        logger.warn("AI did not call the submitTranslation tool. Falling back to parsing chat response text.");
         String cleanedJson = cleanJsonString(rawJson);
-        logger.info("Cleaned JSON from AI: {}", cleanedJson);
-        return GSON.fromJson(cleanedJson, RecorderUserFlow.class);
+        logger.info("Cleaned fallback JSON from AI: {}", cleanedJson);
+        RecorderUserFlow userFlow = GSON.fromJson(cleanedJson, RecorderUserFlow.class);
+        if (userFlow != null) {
+            userFlow.validate();
+        }
+        return userFlow;
     }
 
     @Override
     protected TranslationResult createTranslationResult(RecorderUserFlow userFlow) {
         List<Map<String, Object>> finalSteps = new ArrayList<>();
-        for (Map<String, Object> step : userFlow.steps()) {
-            Map<String, Object> finalStep = new LinkedHashMap<>(step);
-            String type = (String) finalStep.get("type");
-
-            // Add back target: "main" to all steps that don't have a target
-            if (!finalStep.containsKey("target")) {
-                finalStep.put("target", "main");
+        for (RecorderStep step : userFlow.steps()) {
+            Map<String, Object> finalStep = new LinkedHashMap<>();
+            finalStep.put("type", step.type());
+            if (step.url() != null) {
+                finalStep.put("url", step.url());
             }
+            if (step.selectors() != null) {
+                finalStep.put("selectors", step.selectors());
+            }
+            if (step.value() != null) {
+                finalStep.put("value", step.value());
+            }
+            if (step.width() != null) {
+                finalStep.put("width", step.width());
+            }
+            if (step.height() != null) {
+                finalStep.put("height", step.height());
+            }
+
+            String type = step.type();
+
+            // Add back target: "main" to all steps
+            finalStep.put("target", "main");
 
             // Special handling for click
             if ("click".equals(type)) {
-                finalStep.putIfAbsent("offsetX", 1);
-                finalStep.putIfAbsent("offsetY", 1);
+                finalStep.put("offsetX", 1);
+                finalStep.put("offsetY", 1);
             }
 
             // Special handling for setViewport
             if ("setViewport".equals(type)) {
-                finalStep.putIfAbsent("deviceScaleFactor", 1);
-                finalStep.putIfAbsent("isMobile", false);
-                finalStep.putIfAbsent("hasTouch", false);
-                finalStep.putIfAbsent("isLandscape", false);
+                finalStep.put("deviceScaleFactor", 1);
+                finalStep.put("isMobile", false);
+                finalStep.put("hasTouch", false);
+                finalStep.put("isLandscape", false);
             }
 
             finalSteps.add(finalStep);
@@ -108,8 +142,9 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             2. **LOG IS THE ONLY TRUTH**: Your final JSON output MUST be a direct reflection of the `getInteractionLog` results. You are FORBIDDEN from adding, modifying, or hallucinating any command that was not explicitly recorded in the log via a tool call. **NOTE**: The JSON objects returned by each tool are the EXACT objects that must appear in your final `steps` array. Do NOT change them.
             3. **BATCH FOR SPEED**: You are ENCOURAGED to call multiple tools in a single turn.
             4. **SYNC > PAUSE**: `waitForElementVisible` is the primary synchronization tool. It AUTOMATICALLY handles page transition delays by recording a short pause before the wait. Fixed manual `pause` is a LAST-RESORT.
-            5. **SELECTOR HIERARCHY**: ARIA (Role/Name) -> ID -> Name -> CSS -> XPath. Recorder format uses a nested array for selectors. **TIP**: You are ENCOURAGED to provide multiple selector variants (e.g. [ARIA, ID, CSS]) in tool calls. Use prefixes like `id=`, `name=`, `xpath=`, or `css=` which will be automatically converted to Recorder syntax (e.g. `#id`, `[name="name"]`, `xpath/path`). For ARIA, use the `aria/Name` format.
+            5. **NO SELENIUM SELECTORS**: You MUST NOT use Selenium-style selector strategy prefixes (like `id=`, `name=`, `css=`, `xpath=`, or `linkText=`) at all under any circumstances. Pure Chrome DevTools Recorder selector syntax is required. Standard CSS selectors must have NO strategy prefix (e.g. `#username`, `.btn`). Attribute selectors must use `[name="value"]`. XPath selectors must start with `xpath/`. ARIA selectors must use `aria/Name`. This rule applies to both tool calls and the final submitted JSON payload.
             6. **VIEWPORT SAFETY**: Always `setWindowSize` (1280x1024) at start and `scrollToElement` before interaction.
+            7. **MANDATORY SUBMISSION TOOL**: You MUST call the `submitTranslation` tool as the very final action of your run to submit the assembled JSON object. It is STRICTLY FORBIDDEN to simply return the JSON text response without calling the `submitTranslation` tool.
             
             # EXECUTION PROTOCOL (Plan-and-Execute)
             1. **Initialize**: 
@@ -119,9 +154,30 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             3. **Cycle (Interactions)**:
                - Inspect, Interact, and Batch.
                - **PLAN MAINTENANCE**: You MUST call `updatePlan` at least once every 3 interaction turns to document progress and adjust for any dynamic changes in the application.
-            4. **MANDATORY VERIFICATION (Extract)**: 
-               - **STRICT RULE**: You MUST call `getInteractionLog` at the very end.
-               - **FINAL ASSEMBLY**: Map the JSON objects from the log into the final response format. If a step is not in the log, it does not exist. **NOTE**: You ONLY need to provide the essential fields (e.g. `type`, `selectors`, `url`, `value`). Technical details like `target: "main"`, `offsetX`, `offsetY`, and viewport flags are handled automatically by the system.
+            4. **MANDATORY VERIFICATION & SUBMISSION**: 
+               - Call `getInteractionLog` to fetch all actual steps.
+               - Assemble the steps into the target JSON structure:
+                 {
+                   "title": "string",
+                   "steps": [
+                     { "type": "setViewport", "width": 1280, "height": 1024 },
+                     { "type": "navigate", "url": "string" },
+                     { "type": "click", "selectors": [["string"]] },
+                     { "type": "change", "selectors": [["string"]], "value": "string" }
+                   ]
+                 }
+                - **MANDATORY FINAL STEP & SELF-CORRECTION LOOP**: Call the `submitTranslation` tool with this JSON string. The tool will parse, strictly type check, and semantically validate the JSON structure (e.g. validating that navigate steps have a URL, and click/change steps have selectors).
+                - **IF SUBMISSION FAILS**: If the tool returns a validation error or parsing exception, you MUST analyze the exact error message, correct your JSON payload (fixing types, selectors, or missing fields), and call `submitTranslation` again. You MUST loop and resubmit until you receive a success message from the tool.
+             
+            # REFERENCE EXAMPLE
+            **User Script**: "1. Go to site.com, 2. Login as 'admin', 3. Click 'Dashboard'."
+            **Thinking Process**:
+            1. Turn 1 [Action]: `updatePlan("...")` + `open("https://site.com")` + `setWindowSize(1280, 1024)`
+            2. Turn 2 [Action]: `getAriaSnapshot()` + `getAriaLocatorVariants("textbox", "Username")`
+            3. Turn 3 [Action]: `type(["#u"], "admin")` + `type(["#p"], "secret")` + `click(["#login"])`
+            4. Turn 4 [Action]: `scrollToElement(["#dash"])` + `click(["#dash"])` + `getInteractionLog()`
+            5. Turn 5 [Action]: `submitTranslation("...")` (Mandatory final submission tool call)
+            6. Turn 6: Receive success message from tool. Return the final raw JSON as response.
             
             # MANUAL SCRIPT
             {{script}}
@@ -131,6 +187,7 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
             {
               "title": "string",
               "steps": [
+                { "type": "setViewport", "width": 1280, "height": 1024 },
                 { "type": "navigate", "url": "string" },
                 { "type": "click", "selectors": [["string"]] },
                 { "type": "change", "selectors": [["string"]], "value": "string" }
@@ -141,9 +198,69 @@ public class AiPuppeteerTranslationProcessor extends AbstractAiTranslationProces
         String translate(@dev.langchain4j.service.V("script") String script);
     }
 
+    public record RecorderStep(
+        @JsonProperty(required = true) String type,
+        String url,
+        List<List<String>> selectors,
+        String value,
+        Integer width,
+        Integer height
+    ) {
+    }
+
     public record RecorderUserFlow(
         @JsonProperty(required = true) String title,
-        @JsonProperty(required = true) List<Map<String, Object>> steps
+        @JsonProperty(required = true) List<RecorderStep> steps
     ) {
+        public void validate() {
+            if (title == null || title.trim().isEmpty()) {
+                throw new IllegalArgumentException("title cannot be null or empty");
+            }
+            if (steps == null || steps.isEmpty()) {
+                throw new IllegalArgumentException("steps list cannot be null or empty");
+            }
+            for (int i = 0; i < steps.size(); i++) {
+                RecorderStep step = steps.get(i);
+                if (step == null) {
+                    throw new IllegalArgumentException("Step " + (i + 1) + " cannot be null");
+                }
+                if (step.type() == null || step.type().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Step " + (i + 1) + ": type is required");
+                }
+                String type = step.type().trim();
+                if ("navigate".equalsIgnoreCase(type)) {
+                    if (step.url() == null || step.url().trim().isEmpty()) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": url is required for navigate step");
+                    }
+                    String url = step.url().trim();
+                    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": url must start with http:// or https:// (got: " + url + ")");
+                    }
+                } else if ("click".equalsIgnoreCase(type) || "change".equalsIgnoreCase(type)) {
+                    if (step.selectors() == null || step.selectors().isEmpty()) {
+                        throw new IllegalArgumentException("Step " + (i + 1) + ": selectors are required for " + type + " step");
+                    }
+                    for (int j = 0; j < step.selectors().size(); j++) {
+                        List<String> selectorGroup = step.selectors().get(j);
+                        if (selectorGroup == null || selectorGroup.isEmpty()) {
+                            throw new IllegalArgumentException("Step " + (i + 1) + ": selector group at index " + j + " cannot be null or empty");
+                        }
+                        for (int k = 0; k < selectorGroup.size(); k++) {
+                            String sel = selectorGroup.get(k);
+                            if (sel == null || sel.trim().isEmpty()) {
+                                throw new IllegalArgumentException("Step " + (i + 1) + ": selector string at group " + j + " index " + k + " cannot be null or empty");
+                            }
+                            String trimmed = sel.trim();
+                            if (trimmed.startsWith("id=") || trimmed.startsWith("name=") || trimmed.startsWith("css=") || trimmed.startsWith("xpath=") || trimmed.startsWith("linkText=")) {
+                                throw new IllegalArgumentException("Step " + (i + 1) + ": selector \"" + sel + "\" in group " + j + " uses a Selenium-style prefix. " +
+                                    "Chrome DevTools Recorder selectors must NOT use 'id=', 'name=', 'css=', 'xpath=', or 'linkText='. " +
+                                    "Please convert it to standard Recorder format: e.g. '#value' instead of 'id=value', '[name=\"value\"]' instead of 'name=value', " +
+                                    "or 'xpath/...' instead of 'xpath=...'.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

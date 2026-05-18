@@ -14,6 +14,7 @@ import dev.langchain4j.service.AiServices;
 import me.hsgamer.teststate.agent.translation.tool.BrowserExecutionPlan;
 import me.hsgamer.teststate.agent.translation.tool.BrowserInteractionLog;
 import me.hsgamer.teststate.agent.translation.tool.CommonBrowserTools;
+import me.hsgamer.teststate.agent.translation.tool.TranslationOutputSubmitter;
 import me.hsgamer.teststate.client.context.TranslationSessionContext;
 import me.hsgamer.teststate.client.processor.TranslationSessionProcessor;
 import me.hsgamer.teststate.uap.v1.*;
@@ -179,11 +180,13 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
                 BrowserInteractionLog log = new BrowserInteractionLog();
                 BrowserExecutionPlan plan = new BrowserExecutionPlan();
                 CommonBrowserTools commonTools = new CommonBrowserTools(page, log);
+                TranslationOutputSubmitter<R> submitter = new TranslationOutputSubmitter<>(getResultClass());
                 
                 List<Object> tools = new ArrayList<>();
                 tools.add(log);
                 tools.add(plan);
                 tools.add(commonTools);
+                tools.add(submitter);
                 tools.addAll(getInteractionTools(page, log));
 
                 AiServices<T> aiServicesBuilder = AiServices.builder(getServiceClass())
@@ -199,7 +202,7 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
                     .build());
 
                 logger.info("Starting AI translation...");
-                R result = translate(translator, script);
+                R result = translate(translator, script, submitter);
                 logger.info("AI translation finished successfully.");
 
                 context.sendResult(createTranslationResult(result));
@@ -237,9 +240,11 @@ public abstract class AbstractAiTranslationProcessor<T, R> implements Translatio
 
     protected abstract Class<T> getServiceClass();
 
+    protected abstract Class<R> getResultClass();
+
     protected abstract List<Object> getInteractionTools(com.microsoft.playwright.Page page, BrowserInteractionLog log);
 
-    protected abstract R translate(T service, String script);
+    protected abstract R translate(T service, String script, TranslationOutputSubmitter<R> submitter);
 
     protected abstract TranslationResult createTranslationResult(R result);
 }
